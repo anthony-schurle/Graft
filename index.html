@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Graft</title>
+        <link rel="stylesheet" href="styles/style.css">
+    </head>
+    <body>
+        <header>
+            <h1>Graft</h1>
+            <p class="tagline">Math, connected</p>
+        </header>
+        
+        <div class="controls">
+            <button id="mode-toggle" class="btn-primary">
+                <span class="mode-icon">◐</span>
+                <span class="mode-text">Pan</span>
+            </button>
+            <button id="delete-toggle" class="btn-primary">
+                <span class="mode-icon">×</span>
+                <span class="mode-text">Delete</span>
+            </button>
+            <button id="download-toggle" class="btn-primary">
+                <span class="mode-icon">↓</span>
+                <span class="mode-text">Download</span>
+            </button>
+        </div>
+
+        <div class="properties-panel">
+            <div class="properties-header" id="properties-toggle">
+                <span>Graph Properties</span>
+                <span class="chevron">▼</span>
+            </div>
+            <div class="properties-content" id="properties-content">
+                <div class="property">
+                    <span class="property-label">Vertices (|V|):</span>
+                    <span class="property-value" id="vertex-count">0</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Edges (|E|):</span>
+                    <span class="property-value" id="edge-count">0</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Min Degree (δ):</span>
+                    <span class="property-value" id="min-degree">—</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Avg Degree:</span>
+                    <span class="property-value" id="avg-degree">—</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Girth:</span>
+                    <span class="property-value" id="girth">—</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Diameter:</span>
+                    <span class="property-value" id="diameter">—</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Connected:</span>
+                    <span class="property-value" id="is-connected">—</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download modal -->
+        <div id="download-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Download Graph</h2>
+                <div class="download-options">
+                    <button id="download-svg" class="download-btn">Download as SVG</button>
+                    <button id="download-png" class="download-btn">Download as PNG</button>
+                </div>
+                <button id="close-modal" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+
+        <svg id="canvas"></svg>
+        
+        <script src="scripts/renderer.js"></script>
+    </body>
+</html>
