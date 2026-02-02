@@ -25,27 +25,28 @@ document.addEventListener('DOMContentLoaded', () => {
     svg.appendChild(graphGroup);
 
     // UI Elements
-    const toggleBtn = document.getElementById('mode-toggle');
-    const deleteBtn = document.getElementById('delete-toggle');
-    const downloadBtn = document.getElementById('download-toggle');
+    const panBtn = document.getElementById('pan-btn');
+    const createBtn = document.getElementById('create-btn');
+    const deleteBtn = document.getElementById('delete-btn');
+    const downloadBtn = document.getElementById('download-btn');
     const downloadModal = document.getElementById('download-modal');
     const closeModalBtn = document.getElementById('close-modal');
     const downloadSvgBtn = document.getElementById('download-svg');
     const downloadPngBtn = document.getElementById('download-png');
 
-downloadBtn.addEventListener('click', () => {
-    downloadModal.classList.remove('hidden');
-});
+    downloadBtn.addEventListener('click', () => {
+        downloadModal.classList.remove('hidden');
+    });
 
-closeModalBtn.addEventListener('click', () => {
-    downloadModal.classList.add('hidden');
-});
-
-downloadModal.addEventListener('click', (e) => {
-    if (e.target === downloadModal) {
+    closeModalBtn.addEventListener('click', () => {
         downloadModal.classList.add('hidden');
-    }
-});
+    });
+
+    downloadModal.addEventListener('click', (e) => {
+        if (e.target === downloadModal) {
+            downloadModal.classList.add('hidden');
+        }
+    });
     
     const vertexCountEl = document.getElementById('vertex-count');
     const edgeCountEl = document.getElementById('edge-count');
@@ -84,6 +85,9 @@ downloadModal.addEventListener('click', (e) => {
     }
 
     function drawEdge(fromId, toId) {
+        // Prevent self-loops
+        if (fromId === toId) return null;
+        
         const from = graph.vertices.get(fromId);
         const to = graph.vertices.get(toId);
         
@@ -125,33 +129,23 @@ downloadModal.addEventListener('click', (e) => {
         });
     }
 
-    function drawEdge(fromId, toId) {
-        // Prevent self-loops
-        if (fromId === toId) return null;
-        
-        const from = graph.vertices.get(fromId);
-        const to = graph.vertices.get(toId);
-        
-        // Check if edge already exists
-        const edgeExists = Array.from(graph.edges).some(e => 
-            (e.from === fromId && e.to === toId) || 
-            (e.from === toId && e.to === fromId)
-        );
-        if (edgeExists) return null;
+    function deleteVertex(id) {
+        const vertex = graph.vertices.get(id);
+        if (!vertex) return;
 
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', from.x);
-        line.setAttribute('y1', from.y);
-        line.setAttribute('x2', to.x);
-        line.setAttribute('y2', to.y);
-        line.setAttribute('stroke', '#d4a574');
-        line.setAttribute('stroke-width', 2);
-        line.classList.add('edge');
-        edgeGroup.appendChild(line);
-        
-        graph.edges.add({ from: fromId, to: toId, element: line });
+        // Delete incident edges
+        const edgesToDelete = Array.from(graph.edges).filter(e => 
+            e.from === id || e.to === id
+        );
+        edgesToDelete.forEach(edge => {
+            edge.element.remove();
+            graph.edges.delete(edge);
+        });
+
+        // Delete vertex
+        vertex.element.remove();
+        graph.vertices.delete(id);
         updateProperties();
-        return line;
     }
 
     function deleteEdge(edgeElement) {
@@ -338,38 +332,29 @@ downloadModal.addEventListener('click', (e) => {
         mode = newMode;
         cancelEdgeCreation();
         
-        // Update UI
-        toggleBtn.classList.remove('active');
+        // Update UI - remove active from all, add to selected
+        panBtn.classList.remove('active');
+        createBtn.classList.remove('active');
         deleteBtn.classList.remove('active');
         svg.classList.remove('panning', 'creating', 'deleting', 'active-drag');
         
-        if (mode === 'create') {
-            toggleBtn.querySelector('.mode-icon').textContent = '●';
-            toggleBtn.querySelector('.mode-text').textContent = 'Create';
-            toggleBtn.classList.add('active');
+        if (mode === 'pan') {
+            panBtn.classList.add('active');
+            svg.classList.add('panning');
+        } else if (mode === 'create') {
+            createBtn.classList.add('active');
             svg.classList.add('creating');
         } else if (mode === 'delete') {
             deleteBtn.classList.add('active');
             svg.classList.add('deleting');
-        } else {
-            toggleBtn.querySelector('.mode-icon').textContent = '◐';
-            toggleBtn.querySelector('.mode-text').textContent = 'Pan';
-            svg.classList.add('panning');
         }
     }
 
-    toggleBtn.addEventListener('click', () => {
-        setMode(mode === 'create' ? 'pan' : 'create');
-    });
-
-    deleteBtn.addEventListener('click', () => {
-        setMode(mode === 'delete' ? 'pan' : 'delete');
-    });
+    panBtn.addEventListener('click', () => setMode('pan'));
+    createBtn.addEventListener('click', () => setMode('create'));
+    deleteBtn.addEventListener('click', () => setMode('delete'));
 
     function downloadSVG() {
-        // Clone the SVG
-        const svgClone = svg.cloneNode(true);
-        
         // Get bounding box of all elements
         const vertices = Array.from(graph.vertices.values());
         if (vertices.length === 0) return;
@@ -386,23 +371,55 @@ downloadModal.addEventListener('click', (e) => {
         const width = maxX - minX + 2 * padding;
         const height = maxY - minY + 2 * padding;
         
-        // Set viewBox to crop to graph
-        svgClone.setAttribute('width', width);
-        svgClone.setAttribute('height', height);
-        svgClone.setAttribute('viewBox', `${minX - padding} ${minY - padding} ${width} ${height}`);
-        svgClone.style.background = '#242424';
+        // Create new SVG with just the graph
+        const exportSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        exportSvg.setAttribute('width', width);
+        exportSvg.setAttribute('height', height);
+        exportSvg.setAttribute('viewBox', `${minX - padding} ${minY - padding} ${width} ${height}`);
+        exportSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        
+        // Clone graph group (without transforms) - no background for transparency
+        const graphClone = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        
+        // Copy edges
+        graph.edges.forEach(edge => {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            const from = graph.vertices.get(edge.from);
+            const to = graph.vertices.get(edge.to);
+            line.setAttribute('x1', from.x);
+            line.setAttribute('y1', from.y);
+            line.setAttribute('x2', to.x);
+            line.setAttribute('y2', to.y);
+            line.setAttribute('stroke', '#d4a574');
+            line.setAttribute('stroke-width', '2');
+            graphClone.appendChild(line);
+        });
+        
+        // Copy vertices
+        graph.vertices.forEach(vertex => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', vertex.x);
+            circle.setAttribute('cy', vertex.y);
+            circle.setAttribute('r', '20');
+            circle.setAttribute('fill', '#9d7bb8');
+            graphClone.appendChild(circle);
+        });
+        
+        exportSvg.appendChild(graphClone);
         
         // Serialize SVG
         const serializer = new XMLSerializer();
-        const svgString = serializer.serializeToString(svgClone);
+        const svgString = serializer.serializeToString(exportSvg);
         
         // Download
-        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+        const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = 'graph.svg';
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
         downloadModal.classList.add('hidden');
@@ -461,7 +478,9 @@ downloadModal.addEventListener('click', (e) => {
             const link = document.createElement('a');
             link.href = url;
             link.download = 'graph.png';
+            document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
             URL.revokeObjectURL(url);
             downloadModal.classList.add('hidden');
         });
@@ -470,10 +489,11 @@ downloadModal.addEventListener('click', (e) => {
     downloadSvgBtn.addEventListener('click', downloadSVG);
     downloadPngBtn.addEventListener('click', downloadPNG);
 
-    // Initialize with a more interesting tree (binary tree with depth 3)
+    // Initialize with a centered binary tree
     function initializeTree() {
-        const centerX = 400;
-        const centerY = 280;
+        // Use viewport center
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
         
         const levelSpacing = 80;
         
